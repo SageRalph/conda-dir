@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# Ensure at least one argument is provided
+if [ -z "$1" ]; then
+    echo "Usage: conda-dir <conda_env_name>"
+    echo "       conda-dir --remove  # Remove rule for current directory"
+    echo "       conda-dir --list    # List all directories with Conda rules"
+    exit 1
+fi
+
+# Get the current directory
+WORKSPACE_PATH=$(pwd)
+
+# Escape slashes for use in sed replacement
+ESCAPED_PATH=$(echo "$WORKSPACE_PATH" | sed 's_/_\\/_g')
+
+# List all directories with Conda activation rules
+if [ "$1" == "--list" ]; then
+    echo "Directories with Conda auto-activation rules:"
+    grep -oP "(?<=# Auto-activate Conda environment for ).*" ~/.bash_profile
+    exit 0
+fi
+
+# If --remove flag is used, delete the rule and its comment
+if [ "$1" == "--remove" ]; then
+    if grep -q "$WORKSPACE_PATH" ~/.bash_profile; then
+        # Remove the comment and the matching block
+        sed -i "/# Auto-activate Conda environment for $ESCAPED_PATH/d" ~/.bash_profile
+        sed -i "/if \[\[ \"\\\$PWD\" == \"$ESCAPED_PATH\"*/,/fi/d" ~/.bash_profile
+        echo "Removed Conda auto-activation rule for $WORKSPACE_PATH."
+    else
+        echo "No rule found for $WORKSPACE_PATH."
+    fi
+    exit 0
+fi
+
+# Otherwise, add/update the rule
+CONDA_ENV=$1
+RULE="if [[ \"\$PWD\" == \"$WORKSPACE_PATH\"* ]]; then
+    source ~/.bashrc
+    conda activate $CONDA_ENV
+fi"
+
+if grep -q "$WORKSPACE_PATH" ~/.bash_profile; then
+    echo "Updating existing rule for $WORKSPACE_PATH..."
+    sed -i "/if \[\[ \"\\\$PWD\" == \"$ESCAPED_PATH\"*/,+2 s/conda activate .*/conda activate $CONDA_ENV/" ~/.bash_profile
+    echo "Updated rule: $WORKSPACE_PATH -> $CONDA_ENV"
+else
+    echo -e "\n# Auto-activate Conda environment for $WORKSPACE_PATH\n$RULE" >>~/.bash_profile
+    echo "Added rule: $WORKSPACE_PATH -> $CONDA_ENV"
+fi
+
+echo "Reloading ~/.bash_profile..."
+source ~/.bash_profile
+
+echo "Done! Next time you open a terminal in this directory, Conda will activate '$CONDA_ENV' automatically."
