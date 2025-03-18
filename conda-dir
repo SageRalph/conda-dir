@@ -14,6 +14,12 @@ WORKSPACE_PATH=$(pwd)
 # Escape slashes for use in sed replacement
 ESCAPED_PATH=$(echo "$WORKSPACE_PATH" | sed 's_/_\\/_g')
 
+# Ensure ~/.bash_profile exists and sources ~/.bashrc
+if [ ! -f ~/.bash_profile ] || ! grep -q "source ~/.bashrc" ~/.bash_profile; then
+    echo -e "# Ensure ~/.bashrc is sourced\nif [ -f ~/.bashrc ]; then\n    source ~/.bashrc\nfi\n" >>~/.bash_profile
+    echo "Added ~/.bashrc sourcing to ~/.bash_profile"
+fi
+
 # List all directories with Conda activation rules
 if [ "$1" == "--list" ]; then
     echo "Directories with Conda auto-activation rules:"
@@ -37,7 +43,6 @@ fi
 # Otherwise, add/update the rule
 CONDA_ENV=$1
 RULE="if [[ \"\$PWD\" == \"$WORKSPACE_PATH\"* ]]; then
-    source ~/.bashrc
     conda activate $CONDA_ENV
 fi"
 
